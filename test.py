@@ -75,15 +75,16 @@ cnn.to(torch.device('cpu'))
 cnn.eval()
 
 
-# TASK 2&3
-#combine trained model
-# combine taken photo preprocess (img_resized) = input
-# run by input into model.
-# test the new model by using input. = number = output.
 
+
+# recording a video
 import torchvision.transforms as transforms # using torchvision
 from PIL import Image # using PIL
+import cv2
+from matplotlib import pyplot as plt
 
+
+# format the roi frame to image.
 transform = transforms.Compose([
     transforms.Grayscale(),
     transforms.Resize((28, 28)),
@@ -91,23 +92,42 @@ transform = transforms.Compose([
     transforms.Normalize((0.5,), (0.5,))
 ])
 
-# Load and preprocess the image
-image = Image.open('num2.jpg')
-image = transform(image)
-image = image.unsqueeze(0)  # Add a batch dimension
-device = torch.device('cpu')  # Specify the GPU device
-image.to(device)
-image2 = image.unsqueeze(0)  # Add a batch dimension
-# image = image.cuda() # send to cuda gpu to sync with model gpu.
-# load into Model()
-with torch.no_grad():
-    outputs = cnn(image) # model returns usage.
 
-_, predicted_class = torch.max(outputs.data, 1)
-plt.imshow(image2.squeeze().numpy(), cmap='gray')
-print("Predicted Number:", predicted_class.item())
+cap = cv2.VideoCapture(0) # device zero.
 
+while cap.isOpened():
+    ret, frame = cap.read()
 
+    if ret:
+        roi = frame[300:400, 400:500]
+        cv2.rectangle(frame, (400, 300), (500, 400), (0, 255, 0), 2)
 
+        # Preprocess the ROI image
+        roi_image = Image.fromarray(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB))
+        roi_image = transform(roi_image)
+        roi_image = roi_image.unsqueeze(0)
+
+        # Perform image prediction
+        with torch.no_grad():
+            outputs = cnn(roi_image)  # Assuming 'cnn' is your CNN model
+            _, predicted_class = torch.max(outputs.data, 1)
+            cv2.putText(
+                frame,
+                "Predicted Number: " + str(predicted_class.item()),
+                (10, 110),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 255),
+                2
+            )
+            cv2.imshow('Frame', frame)
+            cv2.imshow('ROI', roi)
+            # print("Predicted Number:", predicted_class.item())
+            
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+cap.release()
+cv2.destroyAllWindows()
 
 
